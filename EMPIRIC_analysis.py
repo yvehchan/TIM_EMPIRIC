@@ -15,7 +15,7 @@ import collections
 EMPIRIC_raw_data_fname = "db-fitness.csv"
 # most important reference file with all the libraries information ...
 EMPIRIC_features_fname = "features-original.csv"
-
+# 20 amino acids ...
 aacids = list(SeqUtils.IUPAC.protein.letters)
 
 
@@ -33,7 +33,6 @@ def filterDataset(dat, dataset):
     #print "Filtered data"
     #print dat
     return dat
-
 
 
 #add features to table
@@ -58,6 +57,77 @@ def pivotAddFeatures(dat, dat_features):
     # ...
     #print merged_table
     return merged_table
+
+
+
+#main function for running PCA, calls on subfunctions
+def runPCA(dat, num_eigenv, pc1, pc2, filtParam):
+    """ run PCA, notes:
+    matrix has to be pandas df, and can contain NAs, they are ommited during covariation calculation
+    and NAs are filled with 0.0 during the projection onto eigenvectors. """
+    #######################################################
+    def calculateVarianceExplainedSort(eig_vals, eig_vecs):
+        """function zips eig val and vecs and sort them simultaneously,
+        calculates fractions of explained variance and returns fracs and eigvecs
+        sorted by eigvalues in descending order."""
+        #####################################
+        #  check if there are any negative eigvals, there should not be any presumably ...
+        if (eig_vals < 0.0).any():
+            print "BEWARE: There are some negative eigvals in the PCA analysis!"
+            print "script proceeds, but that's something to check!"
+        ###############################################
+        #sort from largest to smallest eigenvalues (both eigvals and eigvectors)
+        sorted_eigs = sorted(zip(np.abs(eig_vals),np.transpose(eig_vecs)),reverse=True)
+        # extracted sorted vectors ...
+        sorted_eigvecs = [eigvec for eigval,eigvec in sorted_eigs]
+        # calculate var fractions (ordered the same way as vectors: descending)
+        total_eigval = sum([eigval for eigval,eigvec in sorted_eigs])
+        fracs_var_explained = [eigval/total_eigv*100.0 for eigval,eigvec in sorted_eigs]
+        return (fracs_var_explained, sorted_eigvecs) 
+    ################################ 
+    def getProjectionMatrix(sorted_eigvecs):
+        """takes eigen vectors in a sorted order and stacks them to create a projection matrix W"""
+        matrix_w = np.vstack(sorted_eigvecs).transpose()
+        return matrix_w
+    ############################################
+    def getDotProduct(origina_matrix, matrix_w):
+        Y = np.asarray(origina_matrix.fillna(0.0)).dot(matrix_w)
+        return Y
+   #
+    # get matrix from data ...
+    raw_matrix = dat.reset_index(drop=True)
+    # normalize the matrix ...
+    normal_matrix = (raw_matrix - raw_matrix.mean())/raw_matrix.std()
+    # get covariation matrix ...
+    cov_matrix = normal_matrix.cov()
+    # get matrix's eigen-vectors and values ...
+    # BEWARE: use np.linalg.eigh, that assumes the symmetry of the matrix, to avoid imaginary numbers.
+    eig_vals, eig_vecs = np.linalg.eigh(cov_matrix)
+    # get varioation explained and sort everything by it ...
+    fracs_var_explained, sorted_eigvecs = calculateVarianceExplainedSort(eig_vals, eig_vecs)
+    # get projection matrix ...
+    matrix_w = getMatrix(sorted_eigs, num_eigenv)  
+    # Project data to the axes of highest variation (eig vectors)
+    # dot product of PCA table and eigvecs ...
+    Y = getDotProduct(normal_matrix, matrix_w)
+    # in 'Y' - columns are Principal Components and rows correpond to sample ...
+    # Y.shape -(num_rows,num_cols) ...
+    Y_num_rows, Y_num_cols = Y.shape
+    PC_dict = dict( ('PC%d'%(idx+1), Y[:,idx]) for idx in range(Y_num_cols) )
+    var_dict = dict( ('PC%d'%(idx+1), frac) for idx,frac in enumerate(fracs_var_explained) )    
+    return (var_dict,PC_dict)
+
+
+
+
+# http://stackoverflow.com/questions/419163/what-does-if-name-main-do
+if __name__ == "__main__":
+    print "main program body ..."
+    pass
+
+
+
+
 
 
 
