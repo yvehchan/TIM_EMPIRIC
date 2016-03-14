@@ -116,7 +116,7 @@ def runPCA(dat):
     Y_num_rows, Y_num_cols = Y.shape
     PC_dict = dict( ('PC%d'%(idx+1), Y[:,idx]) for idx in range(Y_num_cols) )
     var_dict = dict( ('PC%d'%(idx+1), frac) for idx,frac in enumerate(fracs_var_explained) )    
-    return (var_dict,PC_dict)
+    return (var_dict,PC_dict,matrix_w)
 
 
 
@@ -124,7 +124,61 @@ def runPCA(dat):
 
 
 
-def EMPIRIC_pipeline(EMPIRIC_features_fname, EMPIRIC_raw_data_fname, dataset=['Ss','Tm','Tt']):
+def EMPIRIC_pipeline_separate(EMPIRIC_features_fname, EMPIRIC_raw_data_fname, dataset=['Ss','Tm','Tt']):
+    # read raw data ...
+    dat = pd.read_csv(EMPIRIC_raw_data_fname)
+    # filter and extract dataset of interest ...
+    dat = filterDataset(dat, dataset=dataset)
+    # extract positions we care about from 'EMPIRIC_features_fname' ...
+    lib_dat = pd.read_csv(EMPIRIC_features_fname)
+    # example  of '' organism-pos content: 'Ss-55' ...
+    lib_dat['organism']  = lib_dat['organism-pos'].str.split('-').apply(lambda x: x[0])
+    lib_dat['pos']       = lib_dat['organism-pos'].str.split('-').apply(lambda x: x[1])
+    # wt amino acid column MUST be in lib_dat!
+    assert 'wtaa' in lib_dat.columns
+    #
+    # merge pivoted raw data with the features ...
+    merged_dat = pivotAddFeatures(dat, lib_dat)
+    #
+    # separate lib_dat by organism ...
+    tmp_dat_grouped = lib_dat.groupby('organism')
+    # extract alignments corresponding to dataset ...
+    # empty storage ...
+    lib_pos_dict    = {}
+    matrix_list     = []
+    matrix_w_dict   = {}
+    aln_info_dict   = {}
+    PC_dict_of_dict = {}
+    for tmpid in dataset:
+        print
+        print "Preparing separate PCAs for different organisms: %s"%tmpid
+        matrix = merged_dat[merged_dat['organism']==tmpid][aacids]
+        # print matrix
+        var_dict, PC_dict, matrix_w = runPCA(matrix)
+        # print fraction of variability the PCs explain ...
+        print
+        print "variation explained by components for dataset: ",tmpid
+        for pc in sorted( var_dict, key=lambda x: int(x.strip('PC')) ):
+            print pc,'%.1f%%'%var_dict[pc]
+        # store PCs and projection matrices ...
+        PC_dict_of_dict[tmpid] = PC_dict
+        matrix_w_dict[tmpid]   = matrix_w
+    # # PCA ... 
+    #
+    # now merge components to lib_dat as well ...
+    # merge PC table to lib_dat as well ...
+    merged_dat = merged_dat.merge(
+                    pd.concat(pd.DataFrame( PC_dict_of_dict[tmpid],index=merged_dat[merged_dat['organism']==tmpid]['organism-pos']) for tmpid in dataset),
+                    left_on='organism-pos', right_index=True )
+    # return our output the large table ...
+    return merged_dat, matrix_w_dict
+
+
+
+
+
+
+def EMPIRIC_pipeline_joint(EMPIRIC_features_fname, EMPIRIC_raw_data_fname, dataset=['Ss','Tm','Tt']):
     # read raw data ...
     dat = pd.read_csv(EMPIRIC_raw_data_fname)
     # filter and extract dataset of interest ...
@@ -145,7 +199,7 @@ def EMPIRIC_pipeline(EMPIRIC_features_fname, EMPIRIC_raw_data_fname, dataset=['S
     # extract alignments corresponding to dataset ...
     # PCA ... 
     total_matrix = merged_dat[aacids] 
-    var_dict, PC_dict = runPCA(total_matrix)
+    var_dict, PC_dict, matrix_w = runPCA(total_matrix)
     # print fraction of variability the PCs explain ...
     print
     print "variation explained by components for dataset: ",dataset
@@ -156,9 +210,7 @@ def EMPIRIC_pipeline(EMPIRIC_features_fname, EMPIRIC_raw_data_fname, dataset=['S
     # merge PC table to lib_dat as well ...
     merged_dat = merged_dat.merge( pd.DataFrame(PC_dict,index=merged_dat['organism-pos']), left_on='organism-pos', right_index=True )
     # return our output the large table ...
-    return merged_dat
-
-
+    return merged_dat, matrix_w
 
 
 

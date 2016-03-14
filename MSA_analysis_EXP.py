@@ -118,10 +118,6 @@ def getSummary(aln):
 
 
 
-# NOTE: value_counts counts 'X' amino acids as well, that is probably the source of descripancies between
-# our old script and this nexly generated module ...
-# FIGURE OUT LATER ...
-
 
 #################################################################################################
 # make a function to get AA usage matrix from Aln ...
@@ -129,21 +125,17 @@ def getSummary(aln):
 def alnToAAmat(aln, method='counts',pos_labels=None,log_transform=True):
     # function to get aa counts from aln position ...
     def get_aa_counts(aln_col):
-        # # neglect gaps altogether ...
-        # aln_col_filtered = aln_col.replace('-','')
-        # # # turn into pandas Series to use its power ...
-        # # # value counts takes into account things like '-' and 'X', which is unwanted for our purposes ...
-        # # aa_counts = pd.Series( list(aln_col_filtered) ).value_counts().sort_index()
-        aa_counts = pd.Series( (str(aln_col).count(aa) for aa in aacids), index=aacids )
+        # neglect gaps altogether ...
+        aln_col_filtered = aln_col.replace('-','')
+        # turn into pandas Series to use its power ...
+        aa_counts = pd.Series( list(aln_col_filtered) ).value_counts().sort_index()
         return aa_counts
     # function to get aa fractions from aln position ...
     def get_aa_fractions(aln_col):
-        # # neglect gaps altogether ...
-        # aln_col_filtered = aln_col.replace('-','')
-        # # turn into pandas Series to use its power ...
-        # # # # value counts takes into account things like '-' and 'X', which is unwanted for our purposes ...
-        aa_counts = pd.Series( (str(aln_col).count(aa) for aa in aacids), index=aacids )
-        aa_freqs = aa_counts/aa_counts.sum()
+        # neglect gaps altogether ...
+        aln_col_filtered = aln_col.replace('-','')
+        # turn into pandas Series to use its power ...
+        aa_freqs = pd.Series( list(aln_col_filtered) ).value_counts(normalize=True).sort_index()
         return aa_freqs
     #############################
     # get alignment length, presumably ~80
@@ -156,7 +148,7 @@ def alnToAAmat(aln, method='counts',pos_labels=None,log_transform=True):
     # the matrix with labels or without ...
     matrix = pd.DataFrame(dat_mat) if pos_labels is None else pd.DataFrame(dat_mat,index=pos_labels)
     matrix = matrix.fillna(0)
-    # print matrix
+    print matrix
     # do log trans. if specified (only for counts though) ...
     if (method=='counts')and(log_transform):
         matrix = np.log(matrix+1)
@@ -192,7 +184,7 @@ def alnToAAmat(aln, method='counts',pos_labels=None,log_transform=True):
 
 
 #main function for running PCA, calls on subfunctions
-def runPCA(dat):
+def runPCA(dat,matrix_w=None):
     """ run PCA, notes:
     matrix has to be pandas df, and can contain NAs, they are ommited during covariation calculation
     and NAs are filled with 0.0 during the projection onto eigenvectors. """
@@ -227,7 +219,7 @@ def runPCA(dat):
     #
     # get matrix from data ...
     raw_matrix = dat.reset_index(drop=True)
-    # print raw_matrix
+    print raw_matrix
     # normalize the matrix ...
     normal_matrix = (raw_matrix - raw_matrix.mean())/raw_matrix.std()
     # get covariation matrix ...
@@ -235,11 +227,15 @@ def runPCA(dat):
     # get matrix's eigen-vectors and values ...
     # BEWARE: use np.linalg.eigh, that assumes the symmetry of the matrix, to avoid imaginary numbers.
     eig_vals, eig_vecs = np.linalg.eigh(cov_matrix)
-    print "Raw eigenvalues:", eig_vals
+    print eig_vals
     # get varioation explained and sort everything by it ...
     fracs_var_explained, sorted_eigvecs = calculateVarianceExplainedSort(eig_vals, eig_vecs)
     # get projection matrix ...
-    matrix_w = getProjectionMatrix(sorted_eigvecs)  
+    if matrix_w is None:
+        matrix_w = getProjectionMatrix(sorted_eigvecs)
+    else:
+        # use matrix_w that was passed to the fiunction ...
+        pass
     # Project data to the axes of highest variation (eig vectors)
     # dot product of PCA table and eigvecs ...
     Y = getDotProduct(normal_matrix, matrix_w)
@@ -249,6 +245,10 @@ def runPCA(dat):
     PC_dict = dict( ('PC%d'%(idx+1), Y[:,idx]) for idx in range(Y_num_cols) )
     var_dict = dict( ('PC%d'%(idx+1), frac) for idx,frac in enumerate(fracs_var_explained) )    
     return (var_dict,PC_dict)
+
+
+
+
 
 
 
@@ -325,7 +325,7 @@ def MSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
         matrix = alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True)
         # total_matrix = pd.concat( matrix_list )
         #
-        # print matrix
+        print matrix
         var_dict, PC_dict = runPCA(matrix)
         # print fraction of variability the PCs explain ...
         print
@@ -407,6 +407,123 @@ def MSSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
 
 
 
+def MSA_pipeline_W(reference_lib_fname,proj_mat,aln_fname,dataset=['Ss','Tm','Tt']):
+    # get aln and indexes of templtes ...
+    aln, tmp_idx_in_aln = readAlnIdentifyTemplates( aln_fname, template_ids=dataset )
+    # extract positions we care about from 'reference_lib_fname' ...
+    lib_dat = pd.read_csv(reference_lib_fname)
+    # example  of '' organism-pos content: 'Ss-55' ...
+    lib_dat['organism']  = lib_dat['organism-pos'].str.split('-').apply(lambda x: x[0])
+    lib_dat['pos']       = lib_dat['organism-pos'].str.split('-').apply(lambda x: int(x[1]))
+    # wt amino acid column MUST be in lib_dat!
+    assert 'wtaa' in lib_dat.columns
+    # separate lib_dat by organism ...
+    tmp_dat_grouped = lib_dat.groupby('organism')
+    # extract alignments corresponding to dataset ...
+    #
+    # empty storage ...
+    lib_pos_dict    = {}
+    matrix_list     = []
+    aln_info_dict   = {}
+    PC_dict_of_dict = {}
+    for tmpid in dataset:
+        tmp_index_aln = tmp_idx_in_aln[tmpid]
+        tmplib_pos = tmp_dat_grouped.get_group(tmpid)['pos']
+        lib_pos_dict[tmpid], lib_aas_in_aln, aln_for_lib = getAlnForTemplateLib(aln,tmp_index_aln,tmplib_pos,save_aln=False,sub_aln_fname='')
+        # do some echecking:
+        # check that tmp sequence extracted from aln coincides with the library sequence ...
+        print 'The following sequences must match, unless there is any trimming:'
+        print ''.join(tmp_dat_grouped.get_group(tmpid)['wtaa']) 
+        print ''.join(lib_aas_in_aln)
+        #
+        # get summary for dataset constituents independently ...
+        aln_info_dict[tmpid] = getSummary(aln_for_lib)
+        # get AA usage matrices ...
+        # matrix_list.append( alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True) )
+        matrix = alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True)
+        # total_matrix = pd.concat( matrix_list )
+        #
+        print matrix
+        var_dict, PC_dict = runPCA(matrix,matrix_w=proj_mat)
+        # print fraction of variability the PCs explain ...
+        print
+        print "variation explained by components for dataset: ",tmpid
+        for pc in sorted( var_dict, key=lambda x: int(x.strip('PC')) ):
+            print pc,'%.1f%%'%var_dict[pc]
+        # store PCs ...
+        PC_dict_of_dict[tmpid] = PC_dict
+    #
+    lib_dat['wtKD'] = lib_dat['wtaa'].map(KD)
+    #
+    # turn aln summary info into a nicely labeled piece of DataFrame ...
+    lib_dat = lib_dat.merge(pd.concat( pd.DataFrame(aln_info_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
+        left_on='organism-pos',right_index=True)
+    # now merge components to lib_dat as well ...
+    # merge PC table to lib_dat as well ...
+    lib_dat = lib_dat.merge( pd.concat( pd.DataFrame(PC_dict_of_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
+        left_on='organism-pos', right_index=True )
+    # return our output the large table ...
+    return lib_dat
+
+
+
+
+def MSSA_pipeline_W(reference_lib_fname,proj_mat,aln_fname,dataset=['Ss','Tm','Tt']):
+    # extract positions we care about from 'reference_lib_fname' ...
+    lib_dat = pd.read_csv(reference_lib_fname)
+    # example  of '' organism-pos content: 'Ss-55' ...
+    lib_dat['organism']  = lib_dat['organism-pos'].str.split('-').apply(lambda x: x[0])
+    lib_dat['pos']       = lib_dat['organism-pos'].str.split('-').apply(lambda x: int(x[1]))
+    # wt amino acid column MUST be in lib_dat!
+    assert 'wtaa' in lib_dat.columns
+    # separate lib_dat by organism ...
+    tmp_dat_grouped = lib_dat.groupby('organism')
+    # extract alignments corresponding to dataset ...
+    #
+    # empty storage ...
+    matrix_list     = []
+    aln_info_dict   = {}
+    PC_dict_of_dict = {}
+    for tmpid in dataset:
+        tmplib_pos = tmp_dat_grouped.get_group(tmpid)['pos']
+        # get aln of templtes ...
+        aln_for_lib, var_to_be_neglected = readAlnIdentifyTemplates('../SPalignNS/%s_tim_aln.fasta'%tmpid, template_ids=[] )
+        #
+        print "Checking is already done for structural alignments ..."
+        # get summary for dataset constituents independently ...
+        aln_info_dict[tmpid] = getSummary(aln_for_lib)
+        # get AA usage matrices ...
+        # matrix_list.append( alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True) )
+        matrix = alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True)
+        # total_matrix = pd.concat( matrix_list )
+        #
+        # print matrix
+        var_dict, PC_dict = runPCA(matrix,matrix_w=proj_mat)
+        # print fraction of variability the PCs explain ...
+        print
+        print "variation explained by components for dataset: ",tmpid
+        for pc in sorted( var_dict, key=lambda x: int(x.strip('PC')) ):
+            print pc,'%.1f%%'%var_dict[pc]
+        # store PCs ...
+        PC_dict_of_dict[tmpid] = PC_dict
+    #
+    lib_dat['wtKD'] = lib_dat['wtaa'].map(KD)
+    #
+    # turn aln summary info into a nicely labeled piece of DataFrame ...
+    lib_dat = lib_dat.merge(pd.concat( pd.DataFrame(aln_info_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
+        left_on='organism-pos',right_index=True)
+    # now merge components to lib_dat as well ...
+    # merge PC table to lib_dat as well ...
+    lib_dat = lib_dat.merge( pd.concat( pd.DataFrame(PC_dict_of_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
+        left_on='organism-pos', right_index=True )
+    # return our output the large table ...
+    return lib_dat
+
+
+
+
+
+
 
 
 
@@ -424,7 +541,7 @@ if __name__ == "__main__":
     #
     #
     # libMSA_extraction(feat_fname,msa_fname,dataset=['Ss','Tm','Tt'])
-    libMSA_extraction(feat_fname,msa_fname,dataset=['Ss','Tm','Tt'])
+    libMSA_extraction(feat_fname,msa_fname,dataset=['Ss','Tm'])
     #
     # pass
     # ######################################################################

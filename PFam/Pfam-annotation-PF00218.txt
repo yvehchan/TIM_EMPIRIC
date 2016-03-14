@@ -1,0 +1,6 @@
+http://pfam.xfam.org/family/PF00218
+Family: IGPS (PF00218)
+
+Ss = TRPC_SULSO/1-247
+Tm = TRPC_THEMA/2-247
+Tt = Q5SJ50_THET8
