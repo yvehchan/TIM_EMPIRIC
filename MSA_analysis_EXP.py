@@ -13,7 +13,10 @@ import numpy as np
 from scipy import stats as st
 from Bio.Alphabet import generic_protein
 # from Bio.Align import AlignInfo
+from inspect import isfunction
+#
 aacids = sorted(list(SeqUtils.IUPAC.protein.letters))
+
 
 # # EMPIRIC_raw_data_fname = "db-fitness.csv"
 # # most important reference file with all the libraries information ...
@@ -125,17 +128,21 @@ def getSummary(aln):
 def alnToAAmat(aln, method='counts',pos_labels=None,log_transform=True):
     # function to get aa counts from aln position ...
     def get_aa_counts(aln_col):
-        # neglect gaps altogether ...
-        aln_col_filtered = aln_col.replace('-','')
-        # turn into pandas Series to use its power ...
-        aa_counts = pd.Series( list(aln_col_filtered) ).value_counts().sort_index()
+        # # neglect gaps altogether ...
+        # aln_col_filtered = aln_col.replace('-','')
+        # # # turn into pandas Series to use its power ...
+        # # # value counts takes into account things like '-' and 'X', which is unwanted for our purposes ...
+        # # aa_counts = pd.Series( list(aln_col_filtered) ).value_counts().sort_index()
+        aa_counts = pd.Series( (str(aln_col).count(aa) for aa in aacids), index=aacids )
         return aa_counts
     # function to get aa fractions from aln position ...
     def get_aa_fractions(aln_col):
-        # neglect gaps altogether ...
-        aln_col_filtered = aln_col.replace('-','')
-        # turn into pandas Series to use its power ...
-        aa_freqs = pd.Series( list(aln_col_filtered) ).value_counts(normalize=True).sort_index()
+        # # neglect gaps altogether ...
+        # aln_col_filtered = aln_col.replace('-','')
+        # # turn into pandas Series to use its power ...
+        # # # # value counts takes into account things like '-' and 'X', which is unwanted for our purposes ...
+        aa_counts = pd.Series( (str(aln_col).count(aa) for aa in aacids), index=aacids )
+        aa_freqs = aa_counts/aa_counts.sum()
         return aa_freqs
     #############################
     # get alignment length, presumably ~80
@@ -244,7 +251,7 @@ def runPCA(dat,matrix_w=None):
     Y_num_rows, Y_num_cols = Y.shape
     PC_dict = dict( ('PC%d'%(idx+1), Y[:,idx]) for idx in range(Y_num_cols) )
     var_dict = dict( ('PC%d'%(idx+1), frac) for idx,frac in enumerate(fracs_var_explained) )    
-    return (var_dict,PC_dict)
+    return (var_dict,PC_dict,matrix_w)
 
 
 
@@ -289,7 +296,7 @@ def libMSA_extraction(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
 
 
 
-def MSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
+def MSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt'],verbose_out=False):
     # get aln and indexes of templtes ...
     aln, tmp_idx_in_aln = readAlnIdentifyTemplates( aln_fname, template_ids=dataset )
     # extract positions we care about from 'reference_lib_fname' ...
@@ -305,8 +312,9 @@ def MSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
     #
     # empty storage ...
     lib_pos_dict    = {}
-    matrix_list     = []
+    matrix_dict     = {}
     aln_info_dict   = {}
+    matrix_w_dict   = {}
     PC_dict_of_dict = {}
     for tmpid in dataset:
         tmp_index_aln = tmp_idx_in_aln[tmpid]
@@ -324,9 +332,10 @@ def MSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
         # matrix_list.append( alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True) )
         matrix = alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True)
         # total_matrix = pd.concat( matrix_list )
+        matrix_dict[tmpid] = matrix
         #
-        print matrix
-        var_dict, PC_dict = runPCA(matrix)
+        # print matrix
+        var_dict, PC_dict, matrix_w = runPCA(matrix)
         # print fraction of variability the PCs explain ...
         print
         print "variation explained by components for dataset: ",tmpid
@@ -334,6 +343,7 @@ def MSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
             print pc,'%.1f%%'%var_dict[pc]
         # store PCs ...
         PC_dict_of_dict[tmpid] = PC_dict
+        matrix_w_dict[tmpid]   = matrix_w
     #
     lib_dat['wtKD'] = lib_dat['wtaa'].map(KD)
     #
@@ -345,12 +355,80 @@ def MSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
     lib_dat = lib_dat.merge( pd.concat( pd.DataFrame(PC_dict_of_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
         left_on='organism-pos', right_index=True )
     # return our output the large table ...
-    return lib_dat
+    if not verbose_out:
+        return lib_dat, matrix_w_dict
+    else:
+        return lib_dat, matrix_w_dict, matrix_dict
 
 
 
 
-def MSSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
+def MSSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt'],verbose_out=False):
+    # extract positions we care about from 'reference_lib_fname' ...
+    lib_dat = pd.read_csv(reference_lib_fname)
+    # example  of '' organism-pos content: 'Ss-55' ...
+    lib_dat['organism']  = lib_dat['organism-pos'].str.split('-').apply(lambda x: x[0])
+    lib_dat['pos']       = lib_dat['organism-pos'].str.split('-').apply(lambda x: int(x[1]))
+    # wt amino acid column MUST be in lib_dat!
+    assert 'wtaa' in lib_dat.columns
+    # aln_fname must be a function in this case, just because of the way we've done structural alignments ...
+    assert isfunction(aln_fname)
+    # separate lib_dat by organism ...
+    tmp_dat_grouped = lib_dat.groupby('organism')
+    # extract alignments corresponding to dataset ...
+    #
+    # empty storage ...
+    matrix_dict     = {}
+    aln_info_dict   = {}
+    matrix_w_dict   = {}
+    PC_dict_of_dict = {}
+    for tmpid in dataset:
+        tmplib_pos = tmp_dat_grouped.get_group(tmpid)['pos']
+        # get aln of templtes ...
+        aln_for_lib, var_to_be_neglected = readAlnIdentifyTemplates(aln_fname(tmpid), template_ids=[] )
+        #
+        print "Checking is already done for structural alignments ..."
+        # get summary for dataset constituents independently ...
+        aln_info_dict[tmpid] = getSummary(aln_for_lib)
+        # get AA usage matrices ...
+        # matrix_list.append( alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True) )
+        matrix = alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True)
+        # total_matrix = pd.concat( matrix_list )
+        matrix_dict[tmpid] = matrix
+        #
+        # print matrix
+        var_dict, PC_dict, matrix_w = runPCA(matrix)
+        # print fraction of variability the PCs explain ...
+        print
+        print "variation explained by components for dataset: ",tmpid
+        for pc in sorted( var_dict, key=lambda x: int(x.strip('PC')) ):
+            print pc,'%.1f%%'%var_dict[pc]
+        # store PCs ...
+        PC_dict_of_dict[tmpid] = PC_dict
+        matrix_w_dict[tmpid]   = matrix_w
+    #
+    lib_dat['wtKD'] = lib_dat['wtaa'].map(KD)
+    #
+    # turn aln summary info into a nicely labeled piece of DataFrame ...
+    lib_dat = lib_dat.merge(pd.concat( pd.DataFrame(aln_info_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
+        left_on='organism-pos',right_index=True)
+    # now merge components to lib_dat as well ...
+    # merge PC table to lib_dat as well ...
+    lib_dat = lib_dat.merge( pd.concat( pd.DataFrame(PC_dict_of_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
+        left_on='organism-pos', right_index=True )
+    # return our output the large table ...
+    if not verbose_out:
+        return lib_dat, matrix_w_dict
+    else:
+        return lib_dat, matrix_w_dict, matrix_dict
+
+
+
+
+
+def MSA_pipeline_INTERSECT(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
+    # get aln and indexes of templtes ...
+    aln, tmp_idx_in_aln = readAlnIdentifyTemplates( aln_fname, template_ids=dataset )
     # extract positions we care about from 'reference_lib_fname' ...
     lib_dat = pd.read_csv(reference_lib_fname)
     # example  of '' organism-pos content: 'Ss-55' ...
@@ -362,25 +440,54 @@ def MSSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
     tmp_dat_grouped = lib_dat.groupby('organism')
     # extract alignments corresponding to dataset ...
     #
-    # empty storage ...
+    lib_pos_dict    = {}
     matrix_list     = []
     aln_info_dict   = {}
+    matrix_w_dict   = {}
     PC_dict_of_dict = {}
+    intersection_alignments = {}
     for tmpid in dataset:
+        tmp_index_aln = tmp_idx_in_aln[tmpid]
         tmplib_pos = tmp_dat_grouped.get_group(tmpid)['pos']
-        # get aln of templtes ...
-        aln_for_lib, var_to_be_neglected = readAlnIdentifyTemplates('../SPalignNS/%s_tim_aln.fasta'%tmpid, template_ids=[] )
-        #
-        print "Checking is already done for structural alignments ..."
+        lib_pos_dict[tmpid], lib_aas_in_aln, aln_for_lib = getAlnForTemplateLib(aln,tmp_index_aln,tmplib_pos,save_aln=False,sub_aln_fname='')
+        intersection_alignments[tmpid] = aln_for_lib
+        # do some echecking:    # empty storage ...
+    # FIND INTERSECTION BETWEEN ALL lib_pos_dict lists ...
+    lib_pos_df = pd.DataFrame(lib_pos_dict)
+    lib_pos_df['match'] = lib_pos_df.apply( lambda row: row.unique().size==1, axis=1 )
+    pos_intersect_index = lib_pos_df[ lib_pos_df['match'] ].index
+    print
+    print "The size of interestion alignment is %d"%pos_intersect_index.size
+    print
+    #
+    ################################
+    # get sub-alignment from aln, given a set of positions of interest ...
+    def get_subalignment(positions,aln):
+        positions = list(positions)
+        pos1 = positions[0]
+        sub_aln = aln[:,pos1:pos1+1]
+        for pos in positions[1:]:
+            sub_aln += aln[:,pos:pos+1]
+        return sub_aln
+    ################################
+    # 
+    ######################################
+    # DO THIS ALL OVER AGAIN BUT WITH THE INTERSECTION ALIGNMENT ... 
+    ######################################
+    # this can probably be done just a single time!!!!!!!!!!!!!!!!!!!!
+    # to be continued ....
+    for tmpid in dataset:
+        aln_for_lib = get_subalignment(pos_intersect_index,intersection_alignments[tmpid])
         # get summary for dataset constituents independently ...
         aln_info_dict[tmpid] = getSummary(aln_for_lib)
         # get AA usage matrices ...
         # matrix_list.append( alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True) )
-        matrix = alnToAAmat(aln_for_lib, method='counts',pos_labels=tmp_dat_grouped.get_group(tmpid)['organism-pos'],log_transform=True)
+        pos_labels = tmp_dat_grouped.get_group(tmpid).iloc[pos_intersect_index]['organism-pos'] 
+        matrix = alnToAAmat(aln_for_lib, method='counts',pos_labels=pos_labels,log_transform=True)
         # total_matrix = pd.concat( matrix_list )
         #
         # print matrix
-        var_dict, PC_dict = runPCA(matrix)
+        var_dict, PC_dict, matrix_w = runPCA(matrix)
         # print fraction of variability the PCs explain ...
         print
         print "variation explained by components for dataset: ",tmpid
@@ -388,22 +495,27 @@ def MSSA_pipeline(reference_lib_fname,aln_fname,dataset=['Ss','Tm','Tt']):
             print pc,'%.1f%%'%var_dict[pc]
         # store PCs ...
         PC_dict_of_dict[tmpid] = PC_dict
+        matrix_w_dict[tmpid]   = matrix_w
     #
     lib_dat['wtKD'] = lib_dat['wtaa'].map(KD)
     #
+    #
+    #
+    for tmpid in dataset:
+        print pd.DataFrame(aln_info_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid).iloc[pos_intersect_index]['organism-pos'])
+    #
+    for tmpid in dataset:
+        print pd.DataFrame(PC_dict_of_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid).iloc[pos_intersect_index]['organism-pos'])
+    #
     # turn aln summary info into a nicely labeled piece of DataFrame ...
-    lib_dat = lib_dat.merge(pd.concat( pd.DataFrame(aln_info_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
-        left_on='organism-pos',right_index=True)
+    lib_dat = lib_dat.merge(pd.concat( pd.DataFrame(aln_info_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid).iloc[pos_intersect_index]['organism-pos']) for tmpid in dataset ),
+        left_on='organism-pos',right_index=True,how='left')
     # now merge components to lib_dat as well ...
     # merge PC table to lib_dat as well ...
-    lib_dat = lib_dat.merge( pd.concat( pd.DataFrame(PC_dict_of_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid)['organism-pos']) for tmpid in dataset ),
-        left_on='organism-pos', right_index=True )
+    lib_dat = lib_dat.merge( pd.concat( pd.DataFrame(PC_dict_of_dict[tmpid], index=tmp_dat_grouped.get_group(tmpid).iloc[pos_intersect_index]['organism-pos']) for tmpid in dataset ),
+        left_on='organism-pos', right_index=True,how='left')
     # return our output the large table ...
-    return lib_dat
-
-
-
-
+    return lib_dat, matrix_w_dict
 
 
 
@@ -444,7 +556,7 @@ def MSA_pipeline_W(reference_lib_fname,proj_mat,aln_fname,dataset=['Ss','Tm','Tt
         # total_matrix = pd.concat( matrix_list )
         #
         print matrix
-        var_dict, PC_dict = runPCA(matrix,matrix_w=proj_mat)
+        var_dict, PC_dict, _ = runPCA(matrix,matrix_w=proj_mat)
         # print fraction of variability the PCs explain ...
         print
         print "variation explained by components for dataset: ",tmpid
@@ -498,7 +610,7 @@ def MSSA_pipeline_W(reference_lib_fname,proj_mat,aln_fname,dataset=['Ss','Tm','T
         # total_matrix = pd.concat( matrix_list )
         #
         # print matrix
-        var_dict, PC_dict = runPCA(matrix,matrix_w=proj_mat)
+        var_dict, PC_dict, _ = runPCA(matrix,matrix_w=proj_mat)
         # print fraction of variability the PCs explain ...
         print
         print "variation explained by components for dataset: ",tmpid
