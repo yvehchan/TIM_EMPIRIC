@@ -1,15 +1,14 @@
-# EMPIRIC RAW
+# EMPIRIC data processing
 
-This folder contains a pipeline for processing of raw short read files and extracting fitness values for different amino acid substitutions.
+This folder contains a pipeline for processing fastq files. Short sequence reads are filtered for high quality and tabulated. Fitness values are calculated for different nucleotides and amino acid substitutions based on the sequence counts.
 
 
-- analyze-empiric.pl is Perl wrapper-script that relies on a bunch of dependecies from ./src folder, including compiled "processfasta" C-program.
+- analyze-empiric.pl is a Perl wrapper-script with multiple dependecies from ./src folder, including compiled "processfasta" C-program.
 
-- an assortment of the input files to included later (FASTQs, Ss,Tt,Tm PDBs, sequence files, etc.)
+- input files to included later (FASTQs, PDBs, primer and barcode sequences, etc.)
 
 - Original folder organization is kept to minimize adoption and reading issues.
 
-- More detailed description can be added as needed.
 
 
 
