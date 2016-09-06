@@ -5,7 +5,7 @@ The following PDBs were used:
 * 1I4N - TmIGPS
 * 1VC4 - TtIGPS 
 
-Scripts: 
+Pymol scripts and commands: 
 - Figure 1 - Structural overlay of three IGPS and fourfold symmetry
 - Supplement fig 5 - PCA sectors 1 and 2
 - Supplement fig 6 - Proposed conduit for allostery 
