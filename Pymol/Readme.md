@@ -1,4 +1,4 @@
-##Pymol scripts used to generate the structural figures
+##Pymol scripts/commands used to generate the structural figures
 
 The following PDBs were used: 
 * 2C3Z - SsIGPS
