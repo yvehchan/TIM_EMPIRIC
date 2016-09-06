@@ -1,4 +1,4 @@
-# Pymol scripts
+# Pymol commands
 
 ###---Figure 1---
 #get structures
