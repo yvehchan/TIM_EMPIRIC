@@ -1,5 +1,4 @@
-#-------------------supple fig 5
-
+#-------------------supple fig 6
 
 load alignedIGPS.pse
 
