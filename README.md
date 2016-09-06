@@ -1,13 +1,13 @@
 # TIM_EMPIRIC
 
-Assorted constellation of scripts and procedure for processing and analysis of the EMPIRIC experiment done for 3 IGPS orthologs.
+Assorted constellation of scripts and procedure for processing and analysis of the EMPIRIC experiment performed on three IGPS orthologs. 
 
 
-Folder content description is to follow:
+The following is a list of the folders' descriptions:
 
-- ./Inputs contains preprocessed EMPIRIC fitness readouts and structural/functional description of the mutated positions.
+- ./Inputs - this folder contains preprocessed EMPIRIC fitness readouts and structural/functional description of the mutated positions.
 
-- ./numbers_for_paper is a folder used by some of the processing scripts to store the results in.
+- ./numbers_for_paper - this folder contains some of the processing scripts to store the results in.
 
 - ./PFam contains everything related IGPS family alignment, obtained from PFam
 
