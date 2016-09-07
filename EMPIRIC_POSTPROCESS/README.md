@@ -24,9 +24,9 @@ The following is a list of the folders' contents:
 	* To run our analysis, acquire a copy of SCA toolbox and place modified scripts/inputs into the resulting folder.
 
 - ./Plots 
-	* DFE_and_Correlation_analyses
+	* DFE and Correlation_analyses
 		* R scripts to generate representative graphs of dataset 
-	* Structural_analyses
+	* Structural analyses
 		* Pymol commands to generate structural plots
 
 Scripts: 
