@@ -1,18 +1,18 @@
 # TIM_EMPIRIC postprocessing
 
-Assorted constellation of scripts and procedure for processing and analysis of the EMPIRIC experiment performed on three IGPS orthologs. These are the postprocessing steps based on the available fitness readouts.
+Assorted constellation of scripts and procedures for processing and analysis of the EMPIRIC experiment performed on three IGPS orthologs. 
 
 
 The following is a list of the folders' contents:
 
 - ./Inputs 
-	* This folder contains pre-processed EMPIRIC fitness readouts and structural/functional description of the mutated positions.
+	* This folder contains processed EMPIRIC fitness readouts and structural/functional description of the mutated positions.
 
 - ./numbers_for_paper 
 	* This folder contains the output for some of the scripts.
 
 - ./PFam 
-	*  This folder contains files obtained from PFam related to the IGPS family alignment
+	* This folder contains files obtained from PFam related to the IGPS family alignment
 
 - ./SPalignResults
     * This folder contains files related to the structural alignment of ~70 representative TIM-barrel folds. 
