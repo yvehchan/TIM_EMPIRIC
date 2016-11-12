@@ -1,10 +1,10 @@
 # data files ...
-*.csv
-*.fasta
-*.pdf
-*.xls
-*.xlsx
-*.fasta_aln
+#*.csv
+#*.fasta
+#*.pdf
+#*.xls
+#*.xlsx
+#*.fasta_aln
 
 
 # Byte-compiled / optimized / DLL files
