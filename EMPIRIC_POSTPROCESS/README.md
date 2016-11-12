@@ -8,6 +8,9 @@ The following is a list of the folders' contents:
 - ./Inputs 
 	* This folder contains processed EMPIRIC fitness readouts and structural/functional description of the mutated positions.
 
+- ./MSA_inputs_all
+	* This folder contains all the multiple sequence alignments (MSA) used for analysis. 
+
 - ./numbers_for_paper 
 	* This folder contains the output for some of the scripts.
 
