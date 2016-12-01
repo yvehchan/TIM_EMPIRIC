@@ -1,4 +1,4 @@
-All multiple sequence alignments used in the paper are collected in the folder:
+All multiple sequence alignments used in the paper are saved in this folder:
 
 - MSA used for SCA analysis. "free" formatted MSA were used for analysis along with the original "fasta" files. These files are also stored in "TIM_EMPIRIC/EMPIRIC_POSTPROCESS/Ranganathan_SCA5/SCA5_forDist".
 
