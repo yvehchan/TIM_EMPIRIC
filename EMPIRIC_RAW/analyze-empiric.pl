@@ -7,7 +7,6 @@ use Cwd;
 
 # For 2013 data
 #$fn_fastq = "Jan2014-B1-B8.fastq";
-#$fn_fastq = "fake-from-wrongbarcodes.fa" ;
 #$fn_barcodes = "barcodes.txt";
 #$fn_refseq = "refseq.txt";
 #$fn_gene = "SsIGPS-noTag-AA27-248.fa";
