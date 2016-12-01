@@ -1,6 +1,6 @@
 # TIM_EMPIRIC
 
-Assorted constellation of scripts and procedure for processing and analysis of the EMPIRIC experiment performed on three IGPS orthologs. 
+Assorted constellation of scripts and procedures for processing and analysis of the EMPIRIC experiment performed on three IGPS orthologs. 
 
 
 The following is a list of the folders' descriptions:
