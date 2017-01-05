@@ -1,0 +1,7 @@
+PDB: 1I4N
+Barcodes: barcodes.txt
+Refseq: Tm-refseq.txt
+Sequence: TmIGPS-noTag-AA-32-252.fa
+
+quality control (removed outliers): 
+Tm-blacklist.txt
