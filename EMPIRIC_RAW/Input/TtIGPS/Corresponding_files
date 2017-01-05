@@ -1,0 +1,7 @@
+PDB: 1VC4-monomer
+Barcodes: Tt-barcodes.txt
+Refseq: Tt-refseq.txt
+Sequence: TtIGPS-noTag-AA-35-254.fa
+
+quality control (removed outliers): 
+Tt-blacklist.txt
