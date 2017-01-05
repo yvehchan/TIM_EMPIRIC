@@ -1,2 +1,4 @@
-PDB:
-Barcodes: 
+PDB: 2C3Z
+Barcodes: barcodes.txt
+Refseq: Ss-refseq.txt
+Sequence: SsIGPS-noTag-AA27-248.fa
