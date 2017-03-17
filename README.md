@@ -1,4 +1,4 @@
-# TIM_EMPIRIC
+### Comparison of fitness landscapes for 3 orthologous TIM barrel proteins
 
 Assorted constellation of scripts and procedures for processing and analysis of the EMPIRIC experiment performed on three IGPS orthologs. 
 
