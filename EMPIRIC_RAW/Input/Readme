@@ -5,3 +5,6 @@ Input files for filtering deep sequencing data are grouped by ortholog.
 
 Summary of fitness values used for analysis: db-fitness.csv
 Fitness values are normalized to the average stop of each library. Raw sequencing files (fastq) available by email. 
+
+ARCHIVE: Compressed file with raw data files (counts AA/time) - before normalization 
+
