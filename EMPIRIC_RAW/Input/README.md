@@ -7,7 +7,9 @@
 Fitness values are normalized to the average stop of each library. Raw sequencing files (fastq) available by email. 
 
 
-##### ARCHIVE:  Compressed file with raw data files (counts AA/time) including all accessory files
+### ARCHIVE:  IGPS-paper-rawdata.tar
+
+Compressed file with raw data files (counts AA/time) including all accessory files
 
 *************************************************************** 
 RAW MUTANT COUNTS FOR IGPS PROTEINS USED IN PUBLICATION: 
