@@ -7,7 +7,7 @@
 Fitness values are normalized to the average stop of each library. Raw sequencing files (fastq) available by email. 
 
 
-#### ARCHIVE:  IGPS-paper-rawdata.tar
+#### ARCHIVE:  IGPS-paper-rawdata.tar and IGPS-paper-replicate.tar
 
 Compressed file with raw data files (counts AA/time) including all accessory files
 
