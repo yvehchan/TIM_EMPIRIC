@@ -10,7 +10,9 @@ Fitness values are normalized to the average stop of each library. Raw sequencin
 #### ARCHIVE:  IGPS-paper-rawdata.tar and IGPS-paper-replicate.tar
 
 IGPS-paper-rawdata.tar: Compressed file with raw data files (counts AA/time) including all accessory files
-IGPS-paper-replicate.tar: Compressed file with raw data files (counts AA/time) for biological replicates of SsIGPS B3 and B4, demonstrating reproducibility of fitness results.  
+
+IGPS-paper-replicate.tar: Compressed file with raw data files (counts AA/time) for biological replicates of SsIGPS B3 and B4
+  Used to demostrate reproducibility of fitness results.  
 
 *************************************************************** 
 RAW MUTANT COUNTS FOR IGPS PROTEINS USED IN PUBLICATION: 
